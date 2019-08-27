@@ -14,11 +14,23 @@ class Player:
     def __init__(self, points, name):
         self.points = points
         self.name = name
+        self.rounds = 0
 
     def take_turn(self, action):
+        self.rounds += 1
+
+        if self.rounds == 1:
+            card_hit = draw_first()
+            self.add_card(card_hit)
+
         if action == 'hit':
             card_hit = draw_card()
             self.add_card(card_hit)
+
+
+    def choose_action(self):
+        curr_action = input('You currently have {} points.\nDo you stick or hit?\n'.format(self.points))
+        return curr_action
 
     def add_card(self, card):
         if card.color == 'red':
@@ -30,70 +42,75 @@ class Player:
         return self.name + " has {} points.".format(self.points)
 
 
+class Dealer(Player):
+    def __init__(self, points, name):
+        super().__init__(points, name)
+
+    def choose_action(self):
+        if self.points >= 17:
+            curr_action = 'stick'
+        else:
+            curr_action = 'hit'
+
+        return curr_action
+
+
 class Game:
 
     def __init__(self):
         """ Easy21 """
 
         self.player = Player(0, "Player")
-        self.dealer = Player(0, "Dealer")
+        self.dealer = Dealer(0, "Dealer")
 
         self.game_over = False
+
+    def is_bust(self, player):
+        if player.points > 21 or player.points < 0:
+            return True
+        else:
+            return False
 
     def turn(self, action, player):
         if action == 'hit':
             card_hit = draw_card()
             player.add_card(card_hit)
 
-    def main_loop(self):
-        player_bust = False
-        dealer_bust = False
-
-        reward = 0
-
+    def shitty_round(self, player):
         curr_action = ''
 
-        while not player_bust and curr_action != 'stick':
-            curr_action = input('You currently have {} points.\nDo you stick or hit?\n'.format(self.player.points))
-            self.turn(curr_action, self.player)
+        while curr_action != 'stick':
+            curr_action = player.choose_action()
+            self.turn(curr_action, player)
 
-            if self.player.points > 21 or self.player.points < 0:
-                print("bust at {} points".format(self.player.points))
-                player_bust = True
+            if self.is_bust(player):
+                print("{} bust at {} points".format(player.name, player.points))
+                return -1 # == -1 if player/dealer bust
+        return 1
 
-        if player_bust:
+    def episode(self):
+
+        if self.shitty_round(self.player) == -1:
+            reward = -1
+            return reward
+
+        # if the player didn't bust
+
+        if self.shitty_round(self.dealer) == -1:
+            reward = 1
+            return reward
+
+        # If neither busted
+        if self.player.points > self.dealer.points:
+            reward = 1
+        elif self.player.points < self.dealer.points:
             reward = -1
         else:
-            curr_action = ''
-
-            while not dealer_bust and curr_action != 'stick':
-                if self.dealer.points >= 17:
-                    curr_action = 'stick'
-                else:
-                    curr_action = 'hit'
-
-                self.dealer.take_turn(curr_action)
-
-                if self.dealer.points > 21 or self.dealer.points < 0:
-                    dealer_bust = True
-                    print("Dealer bust at {} points".format(self.dealer.points))
-
-            if dealer_bust:
-                reward = 1
-
-        if not dealer_bust and not player_bust:
-            print("Player points", str(self.player.points))
-            print("Dealer points", str(self.dealer.points))
-            if self.player.points > self.dealer.points:
-                reward = 1
-            elif self.player.points < self.dealer.points:
-
-                reward = -1
-            else:
-                reward = 0
+            reward = 0
 
         print('Reward:')
         print(reward)
+        return reward
 
 
 def draw_card():
@@ -114,5 +131,6 @@ def draw_first():
     first_card = Card(random_value, 'black')
     return first_card
 
+
 game = Game()
-game.main_loop()
+game.episode()
