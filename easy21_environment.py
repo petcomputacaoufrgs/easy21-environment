@@ -16,17 +16,6 @@ class Player:
         self.name = name
         self.rounds = 0
 
-    def take_turn(self, action):
-        self.rounds += 1
-
-        if self.rounds == 1:
-            card_hit = draw_first()
-            self.add_card(card_hit)
-
-        if action == 'hit':
-            card_hit = draw_card()
-            self.add_card(card_hit)
-
 
     def choose_action(self):
         curr_action = input('You currently have {} points.\nDo you stick or hit?\n'.format(self.points))
@@ -63,7 +52,6 @@ class Game:
         self.player = Player(0, "Player")
         self.dealer = Dealer(0, "Dealer")
 
-        self.game_over = False
 
     def is_bust(self, player):
         if player.points > 21 or player.points < 0:
@@ -72,9 +60,46 @@ class Game:
             return False
 
     def turn(self, action, player):
+        player.rounds += 1
+
+        if player.rounds == 1:
+            card_hit = draw_first()
+            player.add_card(card_hit)
+            return
+
         if action == 'hit':
             card_hit = draw_card()
             player.add_card(card_hit)
+
+    def step(self, action):
+        reward = 0
+        done = False
+
+        if action != 'stick':
+            self.turn(action, self.player)
+
+            if self.is_bust(self.player):
+                return self.player.points, action, -1, True
+            else:
+                return self.player.points, action, reward, done
+
+        if action == 'stick':
+            done = True
+
+            if self.shitty_round(self.dealer) == -1:
+                reward = 1
+                return self.player.points, action, reward, done
+
+            # If neither went bust
+            if self.player.points > self.dealer.points:
+                reward = 1
+            elif self.player.points < self.dealer.points:
+                reward = -1
+            else:
+                reward = 0
+
+            #print("Reward", reward)
+            return self.player.points, action, reward, done
 
     def shitty_round(self, player):
         curr_action = ''
@@ -84,33 +109,10 @@ class Game:
             self.turn(curr_action, player)
 
             if self.is_bust(player):
-                print("{} bust at {} points".format(player.name, player.points))
+                #print("{} bust at {} points".format(player.name, player.points))
                 return -1 # == -1 if player/dealer bust
         return 1
 
-    def episode(self):
-
-        if self.shitty_round(self.player) == -1:
-            reward = -1
-            return reward
-
-        # if the player didn't bust
-
-        if self.shitty_round(self.dealer) == -1:
-            reward = 1
-            return reward
-
-        # If neither busted
-        if self.player.points > self.dealer.points:
-            reward = 1
-        elif self.player.points < self.dealer.points:
-            reward = -1
-        else:
-            reward = 0
-
-        print('Reward:')
-        print(reward)
-        return reward
 
 
 def draw_card():
@@ -133,4 +135,4 @@ def draw_first():
 
 
 game = Game()
-game.episode()
+#game.episode()
